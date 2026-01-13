@@ -1,0 +1,1112 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>灵境塔罗</title>
+
+    <link rel="stylesheet" href="style.css">
+    <script src="https://npm.elemecdn.com/marked/marked.min.js"></script>
+    
+    <style>
+        /* ======= ⬇️ 请把这段补丁复制到 <style> 里面 ⬇️ ======= */
+
+    /* 1. 修复首页标题 (强制取消透明渐变，改为金色实心) */
+    h1 { 
+        color: #fbbf24 !important; 
+        -webkit-text-fill-color: #ffdd88 !important; 
+        background: none !important; 
+        text-shadow: 0 0 20px rgba(253, 196, 51, 0.4);
+    }
+
+    /* 2. 修复抽卡结果文字 (强制定义正逆位颜色) */
+    /* 牌名颜色 */
+    #label-name-0, #label-name-1, #label-name-2 { 
+        color: #fef3c7 !important; /* 浅黄色 */
+        font-size: 14px !important;
+        margin-bottom: 4px !important;
+    }
+    
+    /* 正位标签样式 */
+    .text-yellow-300 { 
+        color: #fcd34d !important; 
+        border: 1px solid #713f12 !important; 
+        background-color: rgba(0,0,0,0.6) !important;
+    }
+    
+    /* 逆位标签样式 */
+    .text-red-300 { 
+        color: #fca5a5 !important; 
+        border: 1px solid #7f1d1d !important;
+        background-color: rgba(0,0,0,0.6) !important;
+    }
+    
+    /* 底部 SLOT 标签颜色 (PAST/PRESENT/FUTURE) */
+    .slot-label {
+        color: #d8b4fe !important;
+        font-weight: bold !important;
+    }
+
+    /* ======= ⬆️ 补丁结束 ⬆️ ======= */
+
+        body { margin: 0; overflow: hidden; background-color: #0a0a12; font-family: 'Noto Serif SC', serif; user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        #start-screen {
+            background: radial-gradient(circle at center, rgba(20, 10, 40, 0.95) 0%, #000 100%);
+            transition: opacity 0.8s ease-in-out;
+            z-index: 100;
+        }
+        
+        #main-ui { display: none; opacity: 0; transition: opacity 0.8s ease-in-out; }
+        .ui-layer { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 10; }
+        .glass { 
+            background: rgba(10, 10, 25, 0.85); 
+            backdrop-filter: blur(16px); 
+            border: 1px solid rgba(255,255,255,0.15); 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+        }
+        
+        .camera-preview {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 100px; height: 75px; 
+            border-radius: 8px; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.3);
+            z-index: 20; background: #000;
+            transform: scaleX(-1);
+            pointer-events: auto; opacity: 0.8; transition: opacity 0.3s;
+            display: none; 
+        }
+        .camera-preview:hover { opacity: 1; }
+
+        #cursor {
+            position: absolute; width: 30px; height: 30px;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            border-radius: 50%; pointer-events: none; z-index: 100;
+            transform: translate(-50%, -50%); display: none;
+            transition: width 0.1s, height 0.1s, border-color 0.1s;
+            box-shadow: 0 0 15px rgba(255,255,255,0.3);
+        }
+        #cursor.mode-open { border-color: #fff; width: 30px; height: 30px; background: transparent; } 
+        #cursor.mode-point { border-color: #fbbf24; background: rgba(251, 191, 36, 0.2); width: 12px; height: 12px; } 
+        #cursor.mode-pinch { border-color: #a855f7; width: 20px; height: 20px; }
+        #cursor.mode-fist { border-color: #ef4444; background: #ef4444; width: 40px; height: 40px; box-shadow: 0 0 25px rgba(239, 68, 68, 0.6); } 
+
+        .gesture-tag {
+            position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
+            color: rgba(255,255,255,0.9); font-size: 10px; white-space: nowrap; 
+            text-shadow: 0 2px 4px black; font-weight: bold; letter-spacing: 1px;
+        }
+
+        #interpretation-panel {
+            transition: all 0.5s ease;
+            opacity: 0; transform: translateY(-20px);
+        }
+        #interpretation-panel.visible {
+            opacity: 1; transform: translateY(0);
+        }
+
+        /* 手机端样式 (加大尺寸) */
+        .card-slot {
+            /* 原来是 18vw / 30vw，改大到 24vw / 40vw */
+            width: 24vw; 
+            height: 40vw; 
+            
+            /* 原来限制了 70px/118px，这太小了，会导致大屏手机框不住，建议改大或直接去掉 */
+            max-width: 110px; 
+            max-height: 185px; 
+            
+            /* 保持边框和透明背景 */
+            border: 1px dashed rgba(168, 85, 247, 0.5); /* 边框颜色稍微加深一点，看得更清 */
+            border-radius: 8px;
+            background: transparent; 
+            
+            display: flex; align-items: center; justify-content: center;
+            transition: border-color 0.3s, width 0.3s, height 0.3s;
+            position: relative;
+        }
+        
+        /* 电脑/平板端样式 (加大尺寸) */
+        @media (min-width: 768px) {
+            .card-slot { 
+                /* 原来是 100px/170px，改为 140px / 240px 以匹配电脑屏幕上的卡片 */
+                width: 140px; 
+                height: 240px; 
+                max-width: none; 
+                max-height: none; 
+            } 
+            .slot-label { font-size: 14px; }
+        }
+        
+        /* .card-slot {
+            width: 18vw; height: 30vw; 
+            max-width: 70px; max-height: 118px;
+            border: 1px dashed rgba(168, 85, 247, 0.3);
+            border-radius: 6px;
+            background: transparent;
+
+            display: flex; align-items: center; justify-content: center;
+            transition: border-color 0.3s;
+            position: relative;
+
+        } */
+        
+        .slot-label { font-size: 10px; opacity: 0.5; letter-spacing: 1px; }
+        
+        @media (min-width: 768px) {
+            .card-slot { width: 100px; height: 170px; max-width: none; max-height: none; } 
+            .slot-label { font-size: 12px; }
+        }
+        
+        .info-text { font-size: 10px; }
+        @media (min-width: 768px) { .info-text { font-size: 12px; } }
+
+        .pulse-text { animation: pulse-opacity 2s infinite; }
+        @keyframes pulse-opacity { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
+
+        #ai-modal, #settings-modal {
+            backdrop-filter: blur(20px);
+        }
+        .markdown-body { color: #e2e8f0; font-size: 0.9rem; line-height: 1.6; }
+        .markdown-body h3 { color: #fbbf24; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; font-size: 1.1rem; }
+        .markdown-body strong { color: #a855f7; }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+
+        #error-bar {
+            position: fixed; top: 0; left: 0; width: 100%;
+            background: #ef4444; color: white; text-align: center;
+            padding: 8px; z-index: 1000; font-size: 12px; display: none;
+        }
+    </style>
+
+    <!-- 依赖库 -->
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    
+    <div id="error-bar"></div>
+    <div id="canvas-container"></div>
+    <div id="cursor"><div id="cursor-text" class="gesture-tag">Waiting...</div></div>
+    <video class="input_video" style="display:none"></video>
+    <canvas class="camera-preview" id="output_canvas"></canvas>
+
+    <!-- 启动屏幕 -->
+    <div id="start-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-1000">
+        <div class="glass p-8 rounded-2xl text-center max-w-md w-full mx-4 border border-purple-500/30 shadow-2xl">
+            <div class="mb-6">
+                <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-yellow-200 to-purple-300 mb-2 font-serif tracking-widest">灵境塔罗</h1>
+                <p class="text-purple-300/60 text-xs tracking-[0.3em]">CONNECTING TO THE ASTRAL PLANE</p>
+            </div>
+            
+            <div class="mb-8 relative group">
+                <label for="question-input" class="block text-left text-xs text-yellow-500/80 mb-2 font-mono">心中的疑惑 (QUESTION):</label>
+                <input type="text" id="question-input" placeholder="例如：我最近的运势如何？" 
+                    class="w-full bg-black/40 border border-purple-500/30 rounded-lg py-4 px-4 text-center text-yellow-100 placeholder-purple-400/30 focus:outline-none focus:border-yellow-400/60 focus:bg-black/60 transition-all font-serif text-lg">
+            </div>
+
+            <button id="start-btn" class="w-full py-4 bg-gradient-to-r from-purple-900/80 to-indigo-900/80 hover:from-purple-800 hover:to-indigo-800 border border-purple-500/50 text-yellow-100 font-bold tracking-[0.2em] rounded-lg shadow-[0_0_20px_rgba(168,85,247,0.2)] hover:shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all duration-300 transform hover:-translate-y-1">
+                开启命运之门
+            </button>
+        </div>
+    </div>
+
+    <!-- AI 弹窗 -->
+    <div id="ai-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex-col items-center justify-center p-4">
+        <div class="glass w-full max-w-2xl max-h-[80vh] rounded-2xl flex flex-col relative overflow-hidden border border-purple-500/30">
+            <div class="p-4 border-b border-white/10 flex justify-between items-center bg-purple-900/20">
+                <div class="flex items-center"><span class="text-2xl mr-2">🔮</span><h3 class="text-xl font-bold text-yellow-100 font-serif">DeepSeek 深度解读</h3></div>
+                <button id="close-ai-btn" class="text-gray-400 hover:text-white transition">✕</button>
+            </div>
+            <div id="ai-content" class="p-6 overflow-y-auto markdown-body scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-transparent"></div>
+            <div class="p-4 border-t border-white/10 flex justify-end bg-black/20">
+                <button id="close-ai-btn-2" class="px-4 py-2 text-sm text-gray-300 hover:text-white transition">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex-col items-center justify-center p-4">
+        <div class="glass w-full max-w-md rounded-xl p-6 border border-white/10">
+            <h3 class="text-lg font-bold text-white mb-4"⚙️ 系统设置 (SiliconFlow)</h3>
+            <div class="mb-4 space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">API Key (sk-...)</label>
+                    <input type="password" id="api-key-input" placeholder="请输入 SiliconFlow API Key" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white text-sm focus:border-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">API 地址</label>
+                    <input type="text" id="api-url-input" value="https://api.siliconflow.cn/v1" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white text-sm focus:border-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">模型名称</label>
+                    <input type="text" id="api-model-input" value="deepseek-ai/DeepSeek-V3" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white text-sm focus:border-purple-500 focus:outline-none">
+                </div>
+                <p class="text-[10px] text-gray-500">Key 仅保存在本地浏览器中。</p>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="save-settings-btn" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded text-sm transition">保存</button>
+                <button id="cancel-settings-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm transition">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-ui" class="ui-layer flex flex-col justify-between p-6">
+        <div class="flex justify-between items-start pointer-events-auto w-full max-w-6xl mx-auto relative">
+            <div class="glass px-6 py-4 rounded-xl text-white flex flex-col items-start min-w-[280px] z-10 transition-all duration-300 hover:bg-opacity-90">
+                <h1 class="text-xl font-bold text-purple-300 tracking-[0.2em] font-serif border-b border-purple-500/30 pb-2 mb-2 w-full">TRINITY TAROT</h1>
+                <div id="status-container" class="space-y-1 w-full">
+                    <div class="text-[10px] text-gray-400 mb-1 flex items-center">
+                        <span class="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-2"></span>
+                        <span id="user-question-display" class="truncate max-w-[200px] italic">...</span>
+                    </div>
+                    <p id="phase-title" class="text-sm font-bold text-yellow-100">准备中...</p>
+                    <p id="gesture-instruction" class="text-xs text-green-300 font-medium pulse-text flex items-center">
+                        <span class="mr-2 text-base">🖐</span> 张开手掌 · 左右挥动浏览
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap justify-end gap-2 z-10 w-1/2 md:w-auto">
+                <button id="settings-btn" class="glass px-3 py-2 text-gray-300 hover:text-white rounded transition shadow-lg" title="设置 API">⚙️</button>
+                <label id="btn-import" class="glass px-4 py-2 text-xs text-blue-300 hover:bg-blue-900/40 rounded transition cursor-pointer flex items-center shadow-lg" title="选择本地图片">
+                    <span class="mr-1">📂</span> <span class="hidden md:inline">导入</span>
+                    <input type="file" id="upload-input" multiple accept="image/*" style="display:none">
+                </label>
+                <button id="export-btn" class="glass px-4 py-2 text-xs text-yellow-300 hover:bg-yellow-900/40 rounded transition hidden flex items-center shadow-lg border border-yellow-500/50"><span class="mr-1">💾</span> <span class="hidden md:inline">导出</span></button>
+                <button id="cam-btn" class="glass px-4 py-2 text-xs text-green-300 hover:bg-green-900/40 rounded transition shadow-lg">📷 <span class="hidden md:inline">摄像头</span></button>
+                <button id="reset-btn" class="glass px-4 py-2 text-xs text-indigo-300 hover:bg-indigo-900/40 rounded transition hidden shadow-lg flex items-center"><span class="mr-1">🃏</span> 重新抽卡</button>
+                <button id="change-q-btn" class="glass px-4 py-2 text-xs text-orange-300 hover:bg-orange-900/40 rounded transition hidden shadow-lg flex items-center"><span class="mr-1">🔄</span> 换个问题</button>
+            </div>
+        </div>
+
+        <div id="interpretation-panel" class="glass px-8 py-5 rounded-xl text-center max-w-lg absolute left-1/2 transform -translate-x-1/2 top-28 pointer-events-none z-0">
+            <h2 id="interp-name" class="text-2xl font-bold text-yellow-100 mb-2 font-serif"></h2>
+            <div class="w-12 h-0.5 bg-purple-500 mx-auto mb-3"></div>
+            <p id="interp-desc" class="text-sm text-gray-200 leading-relaxed"></p>
+        </div>
+
+        <div class="absolute bottom-4 left-0 w-full flex flex-col items-center pointer-events-none z-0">
+            <button id="ai-btn" class="mb-6 pointer-events-auto hidden transform transition-all duration-500 hover:scale-105 group relative">
+                <div class="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
+                <div class="relative px-8 py-3 bg-black rounded-full leading-none flex items-center space-x-2 border border-purple-500/50">
+                    <span class="text-2xl">🔮</span><span class="text-purple-100 font-bold tracking-widest">AI 深度解牌</span>
+                </div>
+            </button>
+
+            <div id="slots-container" class="flex justify-center space-x-2 md:space-x-8 w-full px-2">
+                <div class="flex flex-col items-center">
+                    <div class="card-slot" id="slot-0"><span class="text-purple-500 text-xs font-bold tracking-widest slot-label">PAST</span></div>
+                    <div class="mt-2 text-center transition-opacity duration-500 opacity-0" id="info-0">
+                        <div class="text-yellow-100 font-bold info-text" id="label-name-0"></div>
+                        <div class="text-gray-400 mt-0.5 px-2 py-0 rounded bg-black/60 inline-block info-text" id="label-orient-0"></div>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="card-slot" id="slot-1"><span class="text-purple-500 text-xs font-bold tracking-widest slot-label">PRESENT</span></div>
+                    <div class="mt-2 text-center transition-opacity duration-500 opacity-0" id="info-1">
+                        <div class="text-yellow-100 font-bold info-text" id="label-name-1"></div>
+                        <div class="text-gray-400 mt-0.5 px-2 py-0 rounded bg-black/60 inline-block info-text" id="label-orient-1"></div>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="card-slot" id="slot-2"><span class="text-purple-500 text-xs font-bold tracking-widest slot-label">FUTURE</span></div>
+                    <div class="mt-2 text-center transition-opacity duration-500 opacity-0" id="info-2">
+                        <div class="text-yellow-100 font-bold info-text" id="label-name-2"></div>
+                        <div class="text-gray-400 mt-0.5 px-2 py-0 rounded bg-black/60 inline-block info-text" id="label-orient-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- 全局错误捕获 ---
+        window.onerror = function(msg, url, line) {
+            const bar = document.getElementById('error-bar');
+            if(bar) {
+                bar.style.display = 'block';
+                bar.innerText = `⚠️ 错误: ${msg} (行号: ${line})`;
+            }
+            return false;
+        };
+
+        // --- 1. 核心定义 ---
+        const EMBEDDED_IMAGES = {};
+        // 关键修改：将 baseUrl 改为相对路径 "images/card/"
+        
+        const IMG_CONFIG = { baseUrl: "images/card/", suffix: ".jpg" };
+        const CONFIG = { cardCount: 78, cardW: 2.2, cardH: 3.8, archRadius: 40, archY: -39, angleStep: 0.06, scrollSpeed: 0.02, dragInertia: 0.95, camZ: 14, slotScale: 0.8 };
+        const PHASES = ["过去 (Past)", "现在 (Present)", "未来 (Future)"];
+        const MAX_CARDS = 3;
+        const DEFAULT_API_KEY = "sk-rpsahpqrddtjcdtkwleekynjvmlqalstfuhyouidpwpcyxkw";
+
+        let scene, camera, renderer, raycaster;
+        let deckGroup = new THREE.Group(); 
+        let stars;
+        let currentAngle = 0, scrollVelocity = 0;
+        let handPos = new THREE.Vector2(0.5, 0.5);
+        let gesture = 'NONE';
+        let hoveredCard = null; 
+        let animationQueue = []; 
+        let drawnCards = []; 
+        let cardBackTexture;
+        let customImages = [];
+        let userQuestion = "";
+        let isGameActive = false;
+        
+        let isDragging = false;
+        let pointerStartX = 0;
+        let pointerStartTime = 0;
+        let cameraStream = null;
+
+        // --- 2. 基础辅助函数 ---
+
+        function translateRank(r) { 
+            const map = { 'Ace': '首牌', 'Two':'2', 'Three':'3', 'Four':'4', 'Five':'5', 'Six':'6', 'Seven':'7', 'Eight':'8', 'Nine':'9', 'Ten':'10', 'Page': '侍从', 'Knight': '骑士', 'Queen': '王后', 'King': '国王' }; 
+            return map[r] || r; 
+        }
+
+        function createBackPattern() {
+            const c = document.createElement('canvas'); c.width=256; c.height=512;
+            const ctx=c.getContext('2d'); 
+            ctx.fillStyle='#2e1065'; ctx.fillRect(0,0,256,512);
+            ctx.strokeStyle='#d8b4fe'; ctx.lineWidth=2; 
+            ctx.beginPath(); for(let i=0;i<512;i+=32){ctx.moveTo(0,i);ctx.lineTo(128,i+64);ctx.lineTo(256,i);ctx.moveTo(0,i);ctx.lineTo(128,i-64);ctx.lineTo(256,i);} ctx.stroke(); 
+            ctx.strokeStyle='#fbbf24'; ctx.lineWidth=8; ctx.strokeRect(4,4,248,504);
+            ctx.fillStyle='#172554'; ctx.beginPath(); ctx.arc(128,256,60,0,Math.PI*2); ctx.fill();
+            ctx.strokeStyle='#fbbf24'; ctx.lineWidth=3; ctx.stroke();
+            ctx.fillStyle='#fbbf24'; ctx.font='40px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('❂', 128, 256);
+            const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+        }
+
+        function createFacePattern(d) {
+            const c = document.createElement('canvas'); c.width=512; c.height=880;
+            const ctx=c.getContext('2d'); 
+            ctx.fillStyle='#fef3c7'; ctx.fillRect(0,0,512,880);
+            ctx.strokeStyle='#000'; ctx.lineWidth=4; ctx.strokeRect(20,20,472,840);
+            ctx.fillStyle='#111'; ctx.font='bold 50px "Noto Serif SC"'; ctx.textAlign='center'; ctx.fillText(d.cn, 256, 100);
+            ctx.font='italic 30px serif'; ctx.fillStyle='#555'; ctx.fillText(d.en, 256, 150);
+            ctx.fillStyle= d.type==='major' ? '#581c87' : '#1e40af'; ctx.fillRect(80, 200, 352, 450);
+            ctx.fillStyle='#fff'; ctx.font='120px serif'; ctx.fillText(d.type==='major' ? '❂' : '⚔', 256, 450);
+            const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+        }
+
+        function generateDeckData() {
+            let id=0; const list=[];
+            
+            // 关键修改：大阿卡纳命名规则 - 自动添加 "00", "01" 等前缀
+            const majors=[{en:"The Fool",cn:"愚者",desc:"新的开始，无限潜力"},{en:"The Magician",cn:"魔术师",desc:"创造力，行动力"},{en:"The High Priestess",cn:"女祭司",desc:"直觉，潜意识"},{en:"The Empress",cn:"皇后",desc:"丰饶，母性"},{en:"The Emperor",cn:"皇帝",desc:"权威，结构"},{en:"The Hierophant",cn:"教皇",desc:"传统，信仰"},{en:"The Lovers",cn:"恋人",desc:"爱，和谐"},{en:"The Chariot",cn:"战车",desc:"意志力，胜利"},{en:"Strength",cn:"力量",desc:"勇气，耐心"},{en:"The Hermit",cn:"隐士",desc:"内省，指引"},{en:"Wheel of Fortune",cn:"命运之轮",desc:"好运，转折点"},{en:"Justice",cn:"正义",desc:"公平，因果"},{en:"The Hanged Man",cn:"倒吊人",desc:"牺牲，新视角"},{en:"Death",cn:"死神",desc:"结束，重生"},{en:"Temperance",cn:"节制",desc:"平衡，适度"},{en:"The Devil",cn:"恶魔",desc:"束缚，阴暗面"},{en:"The Tower",cn:"高塔",desc:"突变，启示"},{en:"The Star",cn:"星星",desc:"希望，灵感"},{en:"The Moon",cn:"月亮",desc:"幻觉，潜意识"},{en:"The Sun",cn:"太阳",desc:"快乐，成功"},{en:"Judgement",cn:"审判",desc:"觉醒，召唤"},{en:"The World",cn:"世界",desc:"完成，整合"}];
+            
+            majors.forEach((m, index) => {
+                // 将索引转为两位数字符串 (例如 0 -> "00", 5 -> "05")
+                const numPrefix = index.toString().padStart(2, '0');
+                const fileName = `${numPrefix}${m.cn}.jpg`; // 结果如 "00愚者.jpg"
+                list.push({...m, type:'major', id:id++, file: fileName});
+            });
+
+            // 关键修改：小阿卡纳命名规则 - 使用 "花色+数字/名称.jpg"
+            const suits=[{n:'Wands',c:'权杖',p:'wa',m:'行动'},{n:'Cups',c:'圣杯',p:'cu',m:'情感'},{n:'Swords',c:'宝剑',p:'sw',m:'思想'},{n:'Pentacles',c:'星币',p:'pe',m:'物质'}];
+            const ranks=['Ace','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Page','Knight','Queen','King'];
+            
+            // 建立文件名专用的数字/名称映射 (Ace->1, Two->2... Page->侍从)
+            const fileRankMap = {
+                'Ace': '1', 'Two': '2', 'Three': '3', 'Four': '4', 'Five': '5',
+                'Six': '6', 'Seven': '7', 'Eight': '8', 'Nine': '9', 'Ten': '10',
+                'Page': '侍卫', 'Knight': '骑士', 'Queen': '王后', 'King': '国王'
+            };
+
+            suits.forEach(s=>{
+                ranks.forEach((r)=>{
+                    const displayRank = translateRank(r); // 显示用，例如 "首牌"
+                    const fileRank = fileRankMap[r];      // 文件名用，例如 "1"
+                    // 文件名生成：宝剑2.jpg, 权杖1.jpg, 圣杯国王.jpg
+                    const fileName = `${s.c}${fileRank}.jpg`;
+                    
+                    list.push({
+                        en: `${r} of ${s.n}`,
+                        cn: `${s.c} ${displayRank}`,
+                        desc: `${s.m}之${displayRank}`,
+                        type: 'minor',
+                        file: fileName,
+                        id: id++
+                    });
+                })
+            });
+            return list;
+        }
+
+        const DECK_DATA = generateDeckData();
+
+        function createStars() { const geo = new THREE.BufferGeometry(); const pos = []; for(let i=0; i<2000; i++) pos.push((Math.random()-0.5)*100, (Math.random()-0.5)*100, (Math.random()-0.5)*50 - 20); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); const mat = new THREE.PointsMaterial({color:0xffffff, size:0.04, transparent:true, opacity:0.8}); stars = new THREE.Points(geo, mat); scene.add(stars); }
+        function onResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+
+        function getSlotWorldPosition(slotIndex) {
+            const slotEl = document.getElementById(`slot-${slotIndex}`);
+            if (!slotEl) return new THREE.Vector3(0, -4, 0);
+            const rect = slotEl.getBoundingClientRect();
+            const x = ((rect.left + rect.width / 2) / window.innerWidth) * 2 - 1;
+            const y = -((rect.top + rect.height / 2) / window.innerHeight) * 2 + 1;
+            const ndc = new THREE.Vector3(x, y, 0.5);
+            ndc.unproject(camera);
+            const dir = ndc.sub(camera.position).normalize();
+            const distance = -camera.position.z / dir.z; 
+            const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+            return pos;
+        }
+
+        function updateCursorStyle(type) {
+            const cursor = document.getElementById('cursor');
+            const text = document.getElementById('cursor-text');
+            if(!cursor) return;
+            cursor.className = ''; 
+            if (type === 'POINTER') {
+                cursor.style.display = 'block';
+                if (hoveredCard) {
+                    cursor.classList.add('mode-point'); text.innerText = "点击";
+                } else {
+                    cursor.classList.add('mode-open'); text.innerText = "滑动";
+                }
+            } else if (type === 'GESTURE') {
+                cursor.style.display = 'block';
+                if (gesture === 'OPEN') { cursor.classList.add('mode-open'); text.innerText = "浏览"; }
+                else if (gesture === 'POINT') { cursor.classList.add('mode-point'); text.innerText = "瞄准"; }
+                else if (gesture === 'PINCH') { cursor.classList.add('mode-pinch'); text.innerText = "松开"; }
+                else if (gesture === 'FIST') { cursor.classList.add('mode-fist'); text.innerText = "抽取"; }
+            }
+        }
+
+        function ensureCardTexture(card) {
+            const data = card.userData.data;
+            const frontMesh = card.children[1];
+            // 如果已经有纹理了，就不再加载（除非是默认的 fallback）
+            if (frontMesh.material.map && frontMesh.material.map.name !== 'fallback') return;
+            
+            // 1. 先设置默认的 Canvas 绘制牌面作为 fallback
+            const fallbackTex = createFacePattern(data);
+            fallbackTex.name = 'fallback'; // 标记一下
+            frontMesh.material.map = fallbackTex;
+            frontMesh.material.color.setHex(0xffffff);
+            frontMesh.material.needsUpdate = true;
+            
+            let useUrl = null;
+            if (window.TAROT_IMAGES && window.TAROT_IMAGES[data.file.toLowerCase()]) {
+                useUrl = window.TAROT_IMAGES[data.file.toLowerCase()];
+            } else if (customImages.length > 0) {
+                const found = customImages.find(img => img.name.includes(data.file.toLowerCase()));
+                if (found) useUrl = found.src;
+                else {
+                    const idx = card.userData.id % customImages.length;
+                    useUrl = customImages[idx].src;
+                }
+            } else {
+                // 使用配置的相对路径
+                useUrl = IMG_CONFIG.baseUrl + data.file; 
+            }
+
+            const loader = new THREE.TextureLoader();
+            // 尝试加载图片
+            loader.load(
+                useUrl, 
+                (tex) => {
+                    // 成功：替换纹理
+                    tex.colorSpace = THREE.SRGBColorSpace;
+                    tex.name = 'loaded_image';
+                    frontMesh.material.map = tex;
+                    frontMesh.material.needsUpdate = true;
+                }, 
+                undefined, 
+                (err) => {
+                    // 失败：什么都不做，保持上一步设置的 fallbackTex
+                    // 这样就实现了“无法读取则默认显示”的需求
+                    // console.log(`图片加载失败 (${data.file})，使用默认牌面`);
+                }
+            );
+        }
+
+        function updateSlotUI(index, data, isRev) {
+            const infoEl = document.getElementById(`info-${index}`);
+            const nameEl = document.getElementById(`label-name-${index}`);
+            const orientEl = document.getElementById(`label-orient-${index}`);
+            const slotEl = document.getElementById(`slot-${index}`);
+            nameEl.innerText = data.cn;
+            orientEl.innerText = isRev ? "逆位" : "正位";
+            orientEl.className = isRev ? "text-red-300 text-xs mt-1 px-2 py-0.5 rounded bg-black/50 inline-block border border-red-900" : "text-yellow-300 text-xs mt-1 px-2 py-0.5 rounded bg-black/50 inline-block border border-yellow-900";
+            infoEl.style.opacity = 1;
+            slotEl.style.borderColor = isRev ? 'rgba(239, 68, 68, 0.5)' : 'rgba(234, 179, 8, 0.5)';
+        }
+
+        function showInterpretation(data, isRev) {
+            const panel = document.getElementById('interpretation-panel');
+            const nameEl = document.getElementById('interp-name');
+            const descEl = document.getElementById('interp-desc');
+            nameEl.innerText = (isRev ? "↓ " : "↑ ") + data.cn;
+            nameEl.className = isRev ? "text-2xl font-bold text-red-300 mb-2 font-serif" : "text-2xl font-bold text-yellow-100 mb-2 font-serif";
+            descEl.innerText = data.desc + (isRev ? "\n(逆位：能量受阻或内在转化)" : "");
+            panel.classList.add('visible');
+        }
+
+        function updateStatusUI() {
+            const titleEl = document.getElementById('phase-title');
+            const instructEl = document.getElementById('gesture-instruction');
+            if (drawnCards.length < MAX_CARDS) {
+                titleEl.innerText = `正在抽取: ${PHASES[drawnCards.length]}`;
+                titleEl.className = "text-sm font-bold text-yellow-100 mb-1";
+                if (!hoveredCard) {
+                    instructEl.innerHTML = '<span class="mr-2 text-base">🖐</span> 左右滑动浏览 · 点击抽取';
+                    instructEl.className = "text-xs text-white font-medium pulse-text flex items-center";
+                } else {
+                    instructEl.innerHTML = '<span class="mr-2 text-base">⚡</span> 点击任意位置抽取';
+                    instructEl.className = "text-xs text-red-300 font-bold pulse-text flex items-center";
+                }
+            } else {
+                titleEl.innerText = "✨ 占卜完成 ✨";
+                instructEl.innerHTML = "点击下方按钮进行 AI 解读";
+                titleEl.className = "text-sm font-bold text-green-300 mb-1";
+                instructEl.className = "text-xs text-gray-300 font-light";
+                document.getElementById('reset-btn').classList.remove('hidden');
+                document.getElementById('change-q-btn').classList.remove('hidden');
+                document.getElementById('ai-btn').classList.remove('hidden');
+            }
+        }
+
+        // --- 3. 核心逻辑函数 (全部提升) ---
+
+        function handleScroll() {
+            if (!isGameActive) return;
+            if (animationQueue.length > 0 || drawnCards.length >= MAX_CARDS) return;
+            if (gesture === 'OPEN' && !isDragging) {
+                const offset = handPos.x - 0.5; 
+                if (Math.abs(offset) > 0.05) scrollVelocity -= offset * CONFIG.scrollSpeed;
+            } else if (gesture === 'POINT') scrollVelocity *= 0.8; 
+            else if (gesture === 'FIST') scrollVelocity *= 0.2; 
+            scrollVelocity *= CONFIG.dragInertia;
+            currentAngle += scrollVelocity * 0.2; 
+        }
+
+        function updateCardLayout() {
+            const time = Date.now() * 0.001;
+            if (!deckGroup || !deckGroup.children) return;
+
+            deckGroup.children.forEach(card => {
+                if (card.userData.isDrawn) return; 
+                let cardAngle = card.userData.angleOffset + currentAngle;
+                const totalArc = CONFIG.cardCount * CONFIG.angleStep;
+                while (cardAngle > totalArc / 2) cardAngle -= totalArc;
+                while (cardAngle < -totalArc / 2) cardAngle += totalArc;
+                const r = CONFIG.archRadius;
+                const x = r * Math.sin(cardAngle);
+                const y = r * Math.cos(cardAngle) + CONFIG.archY;
+                const z = -Math.abs(cardAngle) * 5; 
+                const isVisible = Math.abs(cardAngle) < 1.0; 
+                card.visible = isVisible;
+                if (isVisible) {
+                    card.position.set(x, y, z);
+                    card.lookAt(0, -10, -r); 
+                    let scale = 1;
+                    let zOffset = 0;
+                    if (card === hoveredCard) { scale = 1.15; zOffset = 2.0; }
+                    card.scale.setScalar(THREE.MathUtils.lerp(card.scale.x, scale, 0.1));
+                    card.position.z += zOffset;
+                    card.position.y += zOffset * 0.2;
+                }
+            });
+        }
+
+        function updateDrawnCards() {
+            drawnCards.forEach((card, idx) => {
+                if (animationQueue.includes(card)) return;
+                const targetPos = getSlotWorldPosition(idx);
+                card.position.x = THREE.MathUtils.lerp(card.position.x, targetPos.x, 0.1);
+                card.position.y = THREE.MathUtils.lerp(card.position.y, targetPos.y, 0.1);
+                card.position.z = THREE.MathUtils.lerp(card.position.z, 0, 0.1);
+                const targetQuat = camera.quaternion.clone();
+                if (card.userData.isReversed) {
+                    const rotZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI);
+                    targetQuat.multiply(rotZ);
+                }
+                card.quaternion.copy(targetQuat); 
+                card.scale.setScalar(THREE.MathUtils.lerp(card.scale.x, CONFIG.slotScale, 0.1));
+            });
+        }
+
+        function updateRaycaster() {
+            if (!isGameActive) return;
+            if (animationQueue.length > 0) return;
+            const ndc = new THREE.Vector2(handPos.x * 2 - 1, -(handPos.y * 2 - 1));
+            raycaster.setFromCamera(ndc, camera);
+            if (drawnCards.length >= MAX_CARDS) return;
+            if (!deckGroup) return;
+            const intersects = raycaster.intersectObjects(deckGroup.children, true);
+            if (intersects.length > 0) {
+                let target = intersects[0].object;
+                while(target.parent && target.parent !== deckGroup) { target = target.parent; }
+                if (!target.userData.isDrawn) {
+                    const prevHover = hoveredCard;
+                    hoveredCard = target;
+                    if (prevHover !== hoveredCard) updateStatusUI(); 
+                }
+            } else {
+                if (hoveredCard) { hoveredCard = null; updateStatusUI(); }
+            }
+        }
+
+        function phase2(card, index) {
+            const targetPos = getSlotWorldPosition(index);
+            const startPos = card.position.clone();
+            const startScale = card.scale.x;
+            let progress = 0;
+            document.getElementById('interpretation-panel').classList.remove('visible');
+            function animateDrop() {
+                progress += 0.04;
+                const t = Math.min(progress, 1);
+                const ease = t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                card.position.lerpVectors(startPos, targetPos, ease);
+                const targetQuat = camera.quaternion.clone();
+                if (card.userData.isReversed) {
+                    const rotZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI);
+                    targetQuat.multiply(rotZ);
+                }
+                card.quaternion.slerp(targetQuat, 0.1); 
+                card.scale.setScalar(THREE.MathUtils.lerp(startScale, CONFIG.slotScale, ease));
+                if (t < 1) requestAnimationFrame(animateDrop); else {
+                    const idx = animationQueue.indexOf(card);
+                    if (idx > -1) animationQueue.splice(idx, 1);
+                    updateSlotUI(index, card.userData.data, card.userData.isReversed);
+                }
+            }
+            animateDrop();
+        }
+
+        function confirmSelection(card) {
+            if (!card) return;
+            card.userData.isDrawn = true;
+            animationQueue.push(card);
+            const worldPos = new THREE.Vector3();
+            const worldQuat = new THREE.Quaternion();
+            card.getWorldPosition(worldPos);
+            card.getWorldQuaternion(worldQuat);
+            scene.add(card);
+            card.position.copy(worldPos);
+            card.quaternion.copy(worldQuat);
+            ensureCardTexture(card);
+            const centerPos = new THREE.Vector3(0, 0.5, CONFIG.camZ - 7);
+            const slotIndex = drawnCards.length;
+            drawnCards.push(card); 
+            updateStatusUI();
+            const targetRotY = 0; 
+            const targetRotZ = card.userData.isReversed ? Math.PI : 0;
+            const startPos = card.position.clone();
+            const startRot = card.rotation.clone();
+            let progress = 0;
+            showInterpretation(card.userData.data, card.userData.isReversed);
+            function phase1() {
+                progress += 0.025;
+                const t = Math.min(progress, 1);
+                const ease = 1 - Math.pow(1 - t, 3);
+                card.position.lerpVectors(startPos, centerPos, ease);
+                card.rotation.x = THREE.MathUtils.lerp(startRot.x, 0, ease);
+                card.rotation.y = THREE.MathUtils.lerp(startRot.y, targetRotY, ease);
+                card.rotation.z = THREE.MathUtils.lerp(startRot.z, targetRotZ, ease);
+                card.scale.setScalar(THREE.MathUtils.lerp(1, 0.85, ease)); 
+                if (t < 1) requestAnimationFrame(phase1); else setTimeout(() => phase2(card, slotIndex), 1500); 
+            }
+            phase1();
+        }
+
+        function handleGestureState(newGesture) {
+            if (!isGameActive) return;
+            if (gesture === newGesture) return;
+            gesture = newGesture;
+            updateCursorStyle('GESTURE');
+            if (drawnCards.length < MAX_CARDS && animationQueue.length === 0) {
+                if (gesture === 'FIST' && hoveredCard) confirmSelection(hoveredCard);
+            }
+        }
+
+        function analyzeGesture(lm) { 
+            if (!isGameActive) return; 
+            if (isDragging) return;
+
+            const tipIndex=lm[8]; const tipThumb=lm[4]; const tipMiddle=lm[12]; const tipRing=lm[16]; const tipPinky=lm[20]; const wrist=lm[0]; const rawX=1-tipIndex.x; const rawY=tipIndex.y; handPos.x+=(rawX-handPos.x)*0.4; handPos.y+=(rawY-handPos.y)*0.4; const el=document.getElementById('cursor'); el.style.display='block'; el.style.left=handPos.x*window.innerWidth+'px'; el.style.top=handPos.y*window.innerHeight+'px'; const dWrist=(pt)=>Math.hypot(pt.x-wrist.x,pt.y-wrist.y); const fingerExtended=[dWrist(tipThumb)>0.15, dWrist(tipIndex)>0.2, dWrist(tipMiddle)>0.2, dWrist(tipRing)>0.2, dWrist(tipPinky)>0.2]; const pinchDist=Math.hypot(tipIndex.x-tipThumb.x,tipIndex.y-tipThumb.y); let detected='OPEN'; const fingersFolded=!fingerExtended[1]&&!fingerExtended[2]&&!fingerExtended[3]&&!fingerExtended[4]; if(pinchDist<0.05) detected='PINCH'; else if(fingersFolded) detected='FIST'; else if(fingerExtended[1]&&!fingerExtended[2]&&!fingerExtended[3]) detected='POINT'; 
+            
+            handleGestureState(detected); 
+        }
+
+        // --- 4. 绑定与事件 ---
+        function resetAll() {
+            drawnCards.forEach(card => scene.remove(card));
+            drawnCards = [];
+            createDeck();
+            document.getElementById('reset-btn').classList.add('hidden');
+            document.getElementById('change-q-btn').classList.add('hidden');
+            document.getElementById('ai-btn').classList.add('hidden');
+            for(let i=0; i<3; i++) {
+                document.getElementById(`info-${i}`).style.opacity = 0;
+                document.getElementById(`slot-${i}`).style.borderColor = 'rgba(168, 85, 247, 0.4)';
+            }
+            document.getElementById('interpretation-panel').classList.remove('visible');
+            updateStatusUI();
+        }
+
+        function enterGame() {
+            const input = document.getElementById('question-input');
+            userQuestion = input.value.trim() || "我的近期综合运势如何？";
+            document.getElementById('start-screen').style.opacity = '0';
+            const mainUi = document.getElementById('main-ui');
+            mainUi.style.display = 'flex';
+            void mainUi.offsetWidth; mainUi.style.opacity = '1';
+            document.getElementById('user-question-display').innerText = userQuestion;
+            isGameActive = true; 
+            updateStatusUI();
+            
+            startCamera();
+            setTimeout(() => { document.getElementById('start-screen').style.display = 'none'; }, 1000);
+        }
+
+        function changeQuestion() {
+            resetAll();
+            isGameActive = false;
+            document.getElementById('main-ui').style.opacity = '0';
+            const startScreen = document.getElementById('start-screen');
+            startScreen.style.display = 'flex';
+            void startScreen.offsetWidth;
+            startScreen.style.opacity = '1';
+            setTimeout(() => { document.getElementById('main-ui').style.display = 'none'; }, 800);
+        }
+
+        function handleImageUpload(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            alert(`正在读取 ${files.length} 张图片，请稍候...`);
+            Promise.all(files.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve({ name: file.name.toLowerCase(), src: e.target.result });
+                    reader.readAsDataURL(file);
+                });
+            })).then(images => {
+                customImages = images;
+                alert("读取完成！点击【💾 导出离线版】即可生成包含图片的永久文件。");
+                document.getElementById('export-btn').classList.remove('hidden');
+            });
+        }
+
+        function exportHTML() {
+            if (customImages.length === 0) { alert("请先导入图片！"); return; }
+            const btn = document.getElementById('export-btn');
+            btn.innerText = "打包中...";
+            setTimeout(() => {
+                let html = document.documentElement.outerHTML;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                doc.getElementById('canvas-container').innerHTML = '';
+                const exportBtn = doc.getElementById('export-btn'); if(exportBtn) exportBtn.style.display = 'none'; 
+                const importBtn = doc.getElementById('btn-import'); if(importBtn) importBtn.style.display = 'none';
+                doc.getElementById('start-screen').style.opacity = '1';
+                doc.getElementById('start-screen').style.display = 'flex';
+                doc.getElementById('main-ui').style.display = 'none';
+                let dataScript = `\n<script>\nwindow.TAROT_IMAGES = {\n`;
+                customImages.forEach(img => { dataScript += `    "${img.name}": "${img.src}",\n`; });
+                dataScript += `};\n<\/script>\n`;
+                let cleanHTML = doc.documentElement.outerHTML;
+                cleanHTML = cleanHTML.replace('</head>', dataScript + '</head>');
+                const blob = new Blob(['<!DOCTYPE html>\n' + cleanHTML], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'tarot_pro_offline.html';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                btn.innerText = "💾 导出离线版";
+                alert("✅ 打包完成！");
+            }, 200);
+        }
+
+        function saveSettings() {
+            const key = document.getElementById('api-key-input').value;
+            const url = document.getElementById('api-url-input').value;
+            const model = document.getElementById('api-model-input').value;
+            localStorage.setItem('gemini_api_key', key);
+            localStorage.setItem('gemini_api_url', url);
+            localStorage.setItem('gemini_api_model', model);
+            document.getElementById('settings-modal').style.display = 'none';
+            alert("设置已保存！");
+        }
+        
+        function closeAiModal() { document.getElementById('ai-modal').style.display = 'none'; isGameActive = true; }
+        function openSettings() { document.getElementById('settings-modal').style.display = 'flex'; }
+
+        async function startAIReading() {
+            isGameActive = false; // Pause game logic
+            const modal = document.getElementById('ai-modal');
+            const content = document.getElementById('ai-content');
+            modal.style.display = 'flex';
+            content.innerHTML = `<div class="flex flex-col items-center justify-center h-40 space-y-4"><div class="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div><p class="text-purple-200 text-sm animate-pulse">正在连接灵界...</p></div>`;
+            
+            let prompt = `你是一位专业的塔罗牌占卜师。求问者的问题是：“${userQuestion}”。\n\n我抽到了以下三张牌作为'时间流'牌阵（过去、现在、未来）：\n`;
+            drawnCards.forEach((card, idx) => {
+                const data = card.userData.data;
+                const pos = PHASES[idx];
+                const orient = card.userData.isReversed ? "逆位" : "正位";
+                prompt += `${idx + 1}. ${pos}: ${data.cn} (${data.en}) - ${orient}\n`;
+            });
+            prompt += "\n请根据维特塔罗体系，结合求问者的问题、牌意和正逆位，进行富有洞察力的解读。请先总结整体运势，再逐张分析，最后给出具体的行动建议。回复请使用 Markdown 格式。";
+
+            const apiKey = localStorage.getItem('gemini_api_key') || DEFAULT_API_KEY;
+            const baseUrl = localStorage.getItem('gemini_api_url') || 'https://api.siliconflow.cn/v1';
+            
+            if (!apiKey) {
+                setTimeout(() => {
+                    const demoResponse = `### ✨ 演示模式解读\n\n**🔮 针对问题：“${userQuestion}”**\n\n*(由于未检测到 API Key，以下为模拟解读)*\n\n**整体指引：**\n这是一个重要的转折点...\n\n**1. 过去：${drawnCards[0].userData.data.cn}**\n...\n\n**2. 现在：${drawnCards[1].userData.data.cn}**\n...\n\n**3. 未来：${drawnCards[2].userData.data.cn}**\n...\n\n*(请在设置中输入您的 Google Gemini API Key 以获得真实解读)*`;
+                    content.innerHTML = marked.parse(demoResponse);
+                }, 2000);
+                return;
+            }
+            try {
+                const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+                let url = `${cleanBaseUrl}/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                let body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
+
+                if (cleanBaseUrl.includes('chat/completions') || cleanBaseUrl.includes('siliconflow')) {
+                    url = cleanBaseUrl.includes('chat/completions') ? cleanBaseUrl : `${cleanBaseUrl}/chat/completions`;
+                    body = JSON.stringify({
+                        model: localStorage.getItem('gemini_api_model') || "deepseek-ai/DeepSeek-V3",
+                        messages: [{role: "user", content: prompt}],
+                        stream: false
+                    });
+                }
+
+                const response = await fetch(url, {
+                    method: 'POST', 
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}` 
+                    },
+                    body: body
+                });
+
+                if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                const data = await response.json();
+                
+                let text = "";
+                if (data.candidates && data.candidates[0].content) {
+                    text = data.candidates[0].content.parts[0].text;
+                } else if (data.choices && data.choices[0].message) {
+                    text = data.choices[0].message.content;
+                }
+                content.innerHTML = marked.parse(text);
+
+            } catch (err) {
+                content.innerHTML = `<p class="text-red-400 text-center">连接失败：${err.message}<br>请检查 API Key 或代理地址。</p>`;
+            }
+        };
+
+        async function startCamera() { 
+            const video = document.querySelector('.input_video'); 
+            const canvas = document.querySelector('.camera-preview'); 
+            const ctx = canvas.getContext('2d'); 
+            const btn = document.getElementById('cam-btn'); 
+            
+            if (cameraStream) {
+                 const tracks = cameraStream.getTracks();
+                 if(tracks.length > 0 && tracks[0].readyState === 'live') return; 
+            }
+
+            btn.innerText = "启动中..."; 
+            
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+            }
+
+            try { 
+                const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`}); 
+                hands.setOptions({maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6}); 
+                hands.onResults(results => { 
+                    ctx.save(); 
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); 
+                    if(results.image) ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height); 
+                    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) { 
+                        const lm = results.multiHandLandmarks[0]; 
+                        drawConnectors(ctx, lm, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 2}); 
+                        drawLandmarks(ctx, lm, {color: '#FF0000', lineWidth: 1}); 
+                        analyzeGesture(lm); // 直接调用
+                    } 
+                    ctx.restore(); 
+                }); 
+                const camera = new Camera(video, { onFrame: async () => { await hands.send({image: video}); }, width: 320, height: 240 }); 
+                await camera.start(); 
+                cameraStream = video.srcObject;
+                btn.style.display = 'none'; 
+                canvas.style.display = 'block'; 
+            } catch(e) { 
+                console.error(e); 
+                if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+                    btn.innerText = "⚠️ 权限被拒";
+                    alert("⚠️ 摄像头启动失败\n\n您似乎拒绝了摄像头权限。\n\n请点击浏览器地址栏左侧的【锁形图标】或【设置】，允许摄像头权限后刷新页面。\n\n或者，您也可以直接使用【鼠标/触屏】模式：\n🖐 拖拽屏幕 = 浏览牌阵\n👆 点击卡牌 = 直接抽取");
+                } else if (e.name === 'NotReadableError' || e.name === 'TrackStartError') {
+                    btn.innerText = "⚠️ 设备占用";
+                    alert("⚠️ 摄像头被占用\n\n请检查是否有其他网页（如 Zoom、腾讯会议）正在使用摄像头。\n\n您依然可以使用【鼠标/触屏】模式进行游戏。");
+                } else {
+                    btn.innerText = "启动失败";
+                }
+            } 
+        };
+
+        function createDeck() {
+            if(deckGroup) scene.remove(deckGroup);
+            deckGroup = new THREE.Group();
+            scene.add(deckGroup);
+            const geo = new THREE.PlaneGeometry(CONFIG.cardW, CONFIG.cardH);
+            const borderGeo = new THREE.PlaneGeometry(CONFIG.cardW + 0.1, CONFIG.cardH + 0.1);
+            const backMat = new THREE.MeshStandardMaterial({ map: cardBackTexture, roughness: 0.6, metalness: 0.1, color: 0xffffff });
+            const borderMat = new THREE.MeshBasicMaterial({ color: 0xc084fc }); 
+            const frontMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+            DECK_DATA.forEach((data, i) => {
+                const card = new THREE.Group();
+                const back = new THREE.Mesh(geo, backMat);
+                back.rotation.y = Math.PI; back.position.z = -0.01;   
+                const front = new THREE.Mesh(geo, frontMat.clone());
+                front.rotation.y = 0; front.position.z = 0.01;   
+                const border = new THREE.Mesh(borderGeo, borderMat);
+                border.position.z = 0;
+                card.add(back, front, border);
+                card.userData = { id: i, data: data, angleOffset: i * CONFIG.angleStep, isReversed: Math.random() < 0.3, isDrawn: false };
+                deckGroup.add(card);
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(stars) stars.rotation.z += 0.0001;
+            handleScroll();
+            updateRaycaster();
+            updateCardLayout();
+            updateDrawnCards(); 
+            renderer.render(scene, camera);
+        }
+
+        function setupPointerEvents() {
+            const container = document.getElementById('canvas-container');
+            container.addEventListener('pointerdown', (e) => {
+                if (!isGameActive) return;
+                isDragging = true;
+                pointerStartX = e.clientX;
+                pointerStartTime = Date.now();
+                scrollVelocity = 0; 
+            });
+            container.addEventListener('pointermove', (e) => {
+                if (!isGameActive) return;
+                handPos.x = e.clientX / window.innerWidth;
+                handPos.y = e.clientY / window.innerHeight;
+                const el = document.getElementById('cursor');
+                el.style.left = e.clientX + 'px';
+                el.style.top = e.clientY + 'px';
+                updateCursorStyle('POINTER');
+                if (isDragging) {
+                    const deltaX = e.clientX - pointerStartX;
+                    pointerStartX = e.clientX;
+                    scrollVelocity += deltaX * 0.0005; 
+                }
+            });
+            container.addEventListener('pointerup', (e) => {
+                if (!isGameActive) return;
+                isDragging = false;
+                const duration = Date.now() - pointerStartTime;
+                const dist = Math.abs(e.clientX - pointerStartX);
+                if (duration < 500 && dist < 30) {
+                    const ndc = new THREE.Vector2(e.clientX/window.innerWidth * 2 -1, -(e.clientY/window.innerHeight * 2 -1));
+                    raycaster.setFromCamera(ndc, camera);
+                    if (drawnCards.length < MAX_CARDS) {
+                        const intersects = raycaster.intersectObjects(deckGroup.children, true);
+                        if (intersects.length > 0) {
+                            let target = intersects[0].object;
+                            while(target.parent && target.parent !== deckGroup) { target = target.parent; }
+                            if (!target.userData.isDrawn) {
+                                confirmSelection(target);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function init() {
+            try {
+                document.getElementById('start-btn').addEventListener('click', enterGame);
+                document.getElementById('settings-btn').addEventListener('click', openSettings);
+                document.getElementById('save-settings-btn').addEventListener('click', saveSettings);
+                document.getElementById('cancel-settings-btn').addEventListener('click', () => document.getElementById('settings-modal').style.display = 'none');
+                document.getElementById('cam-btn').addEventListener('click', startCamera);
+                document.getElementById('upload-input').addEventListener('change', handleImageUpload);
+                document.getElementById('export-btn').addEventListener('click', exportHTML);
+                document.getElementById('reset-btn').addEventListener('click', resetAll);
+                document.getElementById('change-q-btn').addEventListener('click', changeQuestion);
+                document.getElementById('ai-btn').addEventListener('click', startAIReading);
+                document.getElementById('close-ai-btn').addEventListener('click', closeAiModal);
+                document.getElementById('close-ai-btn-2').addEventListener('click', closeAiModal);
+
+                cardBackTexture = createBackPattern();
+                scene = new THREE.Scene();
+                scene.fog = new THREE.FogExp2(0x050505, 0.02);
+                camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+                camera.position.set(0, 0, CONFIG.camZ);
+                camera.lookAt(0, -1, 0); 
+
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.outputColorSpace = THREE.SRGBColorSpace;
+                document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+                const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+                scene.add(ambient);
+                const dirLight = new THREE.DirectionalLight(0xffd700, 1.2);
+                dirLight.position.set(5, 10, 10);
+                scene.add(dirLight);
+                const pointLight = new THREE.PointLight(0x8b5cf6, 1.5, 20);
+                pointLight.position.set(0, -5, 5);
+                scene.add(pointLight);
+
+                createStars();
+                
+                deckGroup = new THREE.Group();
+                scene.add(deckGroup);
+                createDeck();
+                
+                raycaster = new THREE.Raycaster();
+
+                window.addEventListener('resize', onResize);
+                setupPointerEvents();
+                
+                const savedKey = localStorage.getItem('gemini_api_key');
+                if(savedKey) document.getElementById('api-key-input').value = savedKey;
+                const savedUrl = localStorage.getItem('gemini_api_url');
+                if(savedUrl) document.getElementById('api-url-input').value = savedUrl;
+                const savedModel = localStorage.getItem('gemini_api_model');
+                if(savedModel) document.getElementById('api-model-input').value = savedModel;
+                
+            } catch (e) {
+                console.error(e);
+                alert("初始化失败: " + e.message);
+            }
+        }
+
+        window.onload = function() {
+            init();
+            animate();
+            onResize();
+        };
+    </script>
+</body>
+</html>
