@@ -375,7 +375,7 @@
         // --- 2. 基础辅助函数 ---
 
         function translateRank(r) { 
-            const map = { 'Ace': '首牌', 'Two':'2', 'Three':'3', 'Four':'4', 'Five':'5', 'Six':'6', 'Seven':'7', 'Eight':'8', 'Nine':'9', 'Ten':'10', 'Page': '侍从', 'Knight': '骑士', 'Queen': '王后', 'King': '国王' }; 
+            const map = { 'Ace': 'ACE', 'Two':'2', 'Three':'3', 'Four':'4', 'Five':'5', 'Six':'6', 'Seven':'7', 'Eight':'8', 'Nine':'9', 'Ten':'10', 'Page': '侍从', 'Knight': '骑士', 'Queen': '王后', 'King': '国王' }; 
             return map[r] || r; 
         }
 
@@ -423,7 +423,7 @@
             
             // 建立文件名专用的数字/名称映射 (Ace->1, Two->2... Page->侍从)
             const fileRankMap = {
-                'Ace': '1', 'Two': '2', 'Three': '3', 'Four': '4', 'Five': '5',
+                'Ace': 'ACE', 'Two': '2', 'Three': '3', 'Four': '4', 'Five': '5',
                 'Six': '6', 'Seven': '7', 'Eight': '8', 'Nine': '9', 'Ten': '10',
                 'Page': '侍卫', 'Knight': '骑士', 'Queen': '王后', 'King': '国王'
             };
