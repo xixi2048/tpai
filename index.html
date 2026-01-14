@@ -346,7 +346,7 @@
         // --- 1. 核心定义 ---
         const EMBEDDED_IMAGES = {};
         // 关键修改：将 baseUrl 改为相对路径 "images/card/"
-        
+        const textureCache = new Map(); // 用来存已经加载好的图片
         const IMG_CONFIG = { baseUrl: "images/card/", suffix: ".jpg" };
         const CONFIG = { cardCount: 78, cardW: 2.2, cardH: 3.8, archRadius: 40, archY: -39, angleStep: 0.06, scrollSpeed: 0.02, dragInertia: 0.95, camZ: 14, slotScale: 0.8 };
         const PHASES = ["过去 (Past)", "现在 (Present)", "未来 (Future)"];
@@ -455,6 +455,34 @@
                 [array[i], array[j]] = [array[j], array[i]];
             }
         }
+        // --- ✨ 新增：后台静默预加载所有卡牌 ✨ ---
+        function preloadAllImages() {
+            console.log("开始后台预加载所有卡牌...");
+            const loader = new THREE.TextureLoader();
+            
+            // 遍历 78 张牌的数据
+            DECK_DATA.forEach(data => {
+                const url = IMG_CONFIG.baseUrl + data.file;
+                
+                // 如果缓存里没有，就开始加载
+                if (!textureCache.has(data.file)) {
+                    loader.load(
+                        url,
+                        (tex) => {
+                            tex.colorSpace = THREE.SRGBColorSpace;
+                            tex.name = 'loaded_image';
+                            // 加载成功后，存入缓存
+                            textureCache.set(data.file, tex);
+                        },
+                        undefined,
+                        (err) => {
+                            // 即使失败也不报错，静默处理
+                            // console.log(`预加载失败: ${data.file}`);
+                        }
+                    );
+                }
+            });
+        }
         const DECK_DATA = generateDeckData();
 
         function createStars() { const geo = new THREE.BufferGeometry(); const pos = []; for(let i=0; i<2000; i++) pos.push((Math.random()-0.5)*100, (Math.random()-0.5)*100, (Math.random()-0.5)*50 - 20); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); const mat = new THREE.PointsMaterial({color:0xffffff, size:0.04, transparent:true, opacity:0.8}); stars = new THREE.Points(geo, mat); scene.add(stars); }
@@ -494,55 +522,58 @@
                 else if (gesture === 'FIST') { cursor.classList.add('mode-fist'); text.innerText = "抽取"; }
             }
         }
-
         function ensureCardTexture(card) {
             const data = card.userData.data;
-            const frontMesh = card.children[1];
-            // 如果已经有纹理了，就不再加载（除非是默认的 fallback）
-            if (frontMesh.material.map && frontMesh.material.map.name !== 'fallback') return;
+            const frontMesh = card.children[1]; 
             
-            // 1. 先设置默认的 Canvas 绘制牌面作为 fallback
-            const fallbackTex = createFacePattern(data);
-            fallbackTex.name = 'fallback'; // 标记一下
-            frontMesh.material.map = fallbackTex;
-            frontMesh.material.color.setHex(0xffffff);
-            frontMesh.material.needsUpdate = true;
+            // 1. 如果已经加载过，直接返回
+            if (frontMesh.material.map && frontMesh.material.map.name === 'loaded_image') return;
             
-            let useUrl = null;
-            if (window.TAROT_IMAGES && window.TAROT_IMAGES[data.file.toLowerCase()]) {
-                useUrl = window.TAROT_IMAGES[data.file.toLowerCase()];
-            } else if (customImages.length > 0) {
-                const found = customImages.find(img => img.name.includes(data.file.toLowerCase()));
-                if (found) useUrl = found.src;
-                else {
-                    const idx = card.userData.id % customImages.length;
-                    useUrl = customImages[idx].src;
-                }
-            } else {
-                // 使用配置的相对路径
-                useUrl = IMG_CONFIG.baseUrl + data.file; 
+            // 2. 检查缓存
+            if (typeof textureCache !== 'undefined' && textureCache.has(data.file)) {
+                frontMesh.material.map = textureCache.get(data.file);
+                
+                // ✨✨✨【关键修改 1】✨✨✨
+                // 把材质颜色设为纯白，否则图片会发黑！
+                frontMesh.material.color.set(0xffffff);
+                
+                frontMesh.material.needsUpdate = true;
+                return;
             }
 
+            // 3. 默认文字图案（这里不需要改白，保持原来的深色背景）
+            if (!frontMesh.material.map || frontMesh.material.map.name !== 'fallback') {
+                const fallbackTex = createFacePattern(data); 
+                fallbackTex.name = 'fallback';
+                frontMesh.material.map = fallbackTex;
+                frontMesh.material.needsUpdate = true;
+            }
+            
+            // 4. 网络加载
+            let useUrl = IMG_CONFIG.baseUrl + data.file; 
             const loader = new THREE.TextureLoader();
-            // 尝试加载图片
             loader.load(
                 useUrl, 
                 (tex) => {
-                    // 成功：替换纹理
                     tex.colorSpace = THREE.SRGBColorSpace;
                     tex.name = 'loaded_image';
+                    
+                    if (typeof textureCache !== 'undefined') {
+                        textureCache.set(data.file, tex);
+                    }
+                    
                     frontMesh.material.map = tex;
+
+                    // ✨✨✨【关键修改 2】✨✨✨
+                    // 这里也要改！加载完图片后，必须把底色改成白色
+                    frontMesh.material.color.set(0xffffff);
+
                     frontMesh.material.needsUpdate = true;
-                }, 
-                undefined, 
-                (err) => {
-                    // 失败：什么都不做，保持上一步设置的 fallbackTex
-                    // 这样就实现了“无法读取则默认显示”的需求
-                    // console.log(`图片加载失败 (${data.file})，使用默认牌面`);
-                }
+                },
+                undefined,
+                (err) => { console.log("图片加载失败:", data.file); }
             );
         }
-
         function updateSlotUI(index, data, isRev) {
             const infoEl = document.getElementById(`info-${index}`);
             const nameEl = document.getElementById(`label-name-${index}`);
@@ -779,7 +810,8 @@
             document.getElementById('user-question-display').innerText = userQuestion;
             isGameActive = true; 
             updateStatusUI();
-            
+            // ✨✨✨ 新增：进入游戏立刻开始加载所有图片 ✨✨✨
+            preloadAllImages();
             startCamera();
             setTimeout(() => { document.getElementById('start-screen').style.display = 'none'; }, 1000);
         }
