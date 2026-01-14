@@ -447,7 +447,14 @@
             });
             return list;
         }
-
+        // --- ✨ 新增：洗牌算法 (Fisher-Yates Shuffle) ---
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                // 交换位置
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
         const DECK_DATA = generateDeckData();
 
         function createStars() { const geo = new THREE.BufferGeometry(); const pos = []; for(let i=0; i<2000; i++) pos.push((Math.random()-0.5)*100, (Math.random()-0.5)*100, (Math.random()-0.5)*50 - 20); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); const mat = new THREE.PointsMaterial({color:0xffffff, size:0.04, transparent:true, opacity:0.8}); stars = new THREE.Points(geo, mat); scene.add(stars); }
@@ -973,6 +980,7 @@
             const backMat = new THREE.MeshStandardMaterial({ map: cardBackTexture, roughness: 0.6, metalness: 0.1, color: 0xffffff });
             const borderMat = new THREE.MeshBasicMaterial({ color: 0xc084fc }); 
             const frontMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+            shuffleArray(DECK_DATA);
             DECK_DATA.forEach((data, i) => {
                 const card = new THREE.Group();
                 const back = new THREE.Mesh(geo, backMat);
