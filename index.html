@@ -656,6 +656,7 @@
                 if (!target.userData.isDrawn) {
                     const prevHover = hoveredCard;
                     hoveredCard = target;
+                    ensureCardTexture(hoveredCard);
                     if (prevHover !== hoveredCard) updateStatusUI(); 
                 }
             } else {
