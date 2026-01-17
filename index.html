@@ -225,7 +225,7 @@
     <div id="ai-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex-col items-center justify-center p-4">
         <div class="glass w-full max-w-2xl max-h-[80vh] rounded-2xl flex flex-col relative overflow-hidden border border-purple-500/30">
             <div class="p-4 border-b border-white/10 flex justify-between items-center bg-purple-900/20">
-                <div class="flex items-center"><span class="text-2xl mr-2">🔮</span><h3 class="text-xl font-bold text-yellow-100 font-serif">DeepSeek 深度解读</h3></div>
+                <div class="flex items-center"><span class="text-2xl mr-2">🔮</span><h3 class="text-xl font-bold text-yellow-100 font-serif">牌面解读</h3></div>
                 <button id="close-ai-btn" class="text-gray-400 hover:text-white transition">✕</button>
             </div>
             <div id="ai-content" class="p-6 overflow-y-auto markdown-body scrollbar-thin scrollbar-thumb-purple-500 scrollbar-track-transparent"></div>
@@ -300,7 +300,7 @@
             <button id="ai-btn" class="mb-6 pointer-events-auto hidden transform transition-all duration-500 hover:scale-105 group relative">
                 <div class="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
                 <div class="relative px-8 py-3 bg-black rounded-full leading-none flex items-center space-x-2 border border-purple-500/50">
-                    <span class="text-2xl">🔮</span><span class="text-purple-100 font-bold tracking-widest">AI 深度解牌</span>
+                    <span class="text-2xl">🔮</span><span class="text-purple-100 font-bold tracking-widest">点击进行牌面解读</span>
                 </div>
             </button>
 
@@ -611,7 +611,7 @@
                 }
             } else {
                 titleEl.innerText = "✨ 占卜完成 ✨";
-                instructEl.innerHTML = "点击下方按钮进行 AI 解读";
+                instructEl.innerHTML = "点击下方按钮进行牌面解读";
                 titleEl.className = "text-sm font-bold text-green-300 mb-1";
                 instructEl.className = "text-xs text-gray-300 font-light";
                 document.getElementById('reset-btn').classList.remove('hidden');
@@ -887,43 +887,97 @@
         function openSettings() { document.getElementById('settings-modal').style.display = 'flex'; }
 
         async function startAIReading() {
-            isGameActive = false; // Pause game logic
+            isGameActive = false; // 暂停游戏交互
             const modal = document.getElementById('ai-modal');
             const content = document.getElementById('ai-content');
             modal.style.display = 'flex';
+            
+            // 显示加载动画
             content.innerHTML = `<div class="flex flex-col items-center justify-center h-40 space-y-4"><div class="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div><p class="text-purple-200 text-sm animate-pulse">正在连接灵界...</p></div>`;
             
-            let prompt = `你是一位专业的塔罗牌占卜师。求问者的问题是：“${userQuestion}”。\n\n我抽到了以下三张牌作为'时间流'牌阵（过去、现在、未来）：\n`;
+            // 1. 准备卡牌数据字符串 (cardsStr)
+            let cardsStr = "";
             drawnCards.forEach((card, idx) => {
                 const data = card.userData.data;
-                const pos = PHASES[idx];
-                const orient = card.userData.isReversed ? "逆位" : "正位";
-                prompt += `${idx + 1}. ${pos}: ${data.cn} (${data.en}) - ${orient}\n`;
+                const pos = PHASES[idx]; // 过去/现在/未来
+                const orient = card.userData.isReversed ? "逆位 (Reversed)" : "正位 (Upright)";
+                cardsStr += `${idx + 1}. ${pos}: ${data.cn} (${data.en}) - ${orient}\n`;
             });
-            prompt += "\n请根据维特塔罗体系，结合求问者的问题、牌意和正逆位，进行富有洞察力的解读。请先总结整体运势，再逐张分析，最后给出具体的行动建议。回复请使用 Markdown 格式。";
+
+            // 2. 定义系统提示词 (System Prompt - 人设)
+            // 📝 来自你的截图内容
+            const systemPrompt = `你不是在解释塔罗牌义，你正在为一个真实的人进行占卜。
+
+你的身份是一位经验丰富、直觉极强的塔罗师：
+- 你相信牌不是随机的，而是回应提问者的潜意识
+- 你会优先说出“最重要、最刺痛、最被回避的那一点”
+- 你允许使用直觉判断，而不是完全依赖教科书牌义
+
+占卜风格要求：
+- 语言要有温度，像在低声对话，而不是写报告
+- 不要按“每张牌分别解释”的教科书结构
+- 可以在解读中停顿、反问、直指情绪
+- 允许模糊性、象征性和心理暗示
+- 少总结，多揭示
+
+你的目标不是安慰人，而是帮助提问者看清正在发生的事。`;
+
+            // 3. 定义用户提示词 (User Prompt - 问题与牌阵)
+            // 📝 来自你的截图内容
+            const userPrompt = `我现在的问题是：「${userQuestion}」。
+
+在开始解读前，请你先静默片刻，像真正的塔罗师一样感受这组牌的整体气息。
+
+我抽到的三张牌（按时间顺序展开）是：
+${cardsStr}
+
+请像真正的塔罗师一样，先静静感受这组牌的整体气息。
+根据牌阵的气质和洗牌时的命运能量，请自动选择适合的解读风格（温柔/冷静/残酷），让解读既有灵魂，又能直击我的内心。
+
+不要机械列出牌义，而是：
+- 从直觉出发讲述牌的故事
+- 用比喻、意象和情绪去表达
+- 让每张牌都有它独特的声音
+
+请开始你的详细解读。`;
 
             const apiKey = localStorage.getItem('gemini_api_key') || DEFAULT_API_KEY;
             const baseUrl = localStorage.getItem('gemini_api_url') || 'https://api.siliconflow.cn/v1';
             
+            // --- 演示模式 (无 Key 时) ---
             if (!apiKey) {
                 setTimeout(() => {
-                    const demoResponse = `### ✨ 演示模式解读\n\n**🔮 针对问题：“${userQuestion}”**\n\n*(由于未检测到 API Key，以下为模拟解读)*\n\n**整体指引：**\n这是一个重要的转折点...\n\n**1. 过去：${drawnCards[0].userData.data.cn}**\n...\n\n**2. 现在：${drawnCards[1].userData.data.cn}**\n...\n\n**3. 未来：${drawnCards[2].userData.data.cn}**\n...\n\n*(请在设置中输入您的 Google Gemini API Key 以获得真实解读)*`;
+                    const demoResponse = `### ✨ 演示模式解读\n\n**🔮 针对问题：“${userQuestion}”**\n\n*(由于未检测到 API Key，以下为模拟解读)*\n\n**✨ 灵视：**\n我感觉到一股强烈的... (请配置 Key 以查看真实解读)\n\n**1. ${drawnCards[0].userData.data.cn}**...`;
                     content.innerHTML = marked.parse(demoResponse);
                 }, 2000);
                 return;
             }
+
             try {
                 const cleanBaseUrl = baseUrl.replace(/\/$/, '');
                 let url = `${cleanBaseUrl}/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-                let body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
+                let body;
 
+                // --- 针对 SiliconFlow / DeepSeek (OpenAI 格式) ---
                 if (cleanBaseUrl.includes('chat/completions') || cleanBaseUrl.includes('siliconflow')) {
                     url = cleanBaseUrl.includes('chat/completions') ? cleanBaseUrl : `${cleanBaseUrl}/chat/completions`;
+                    
+                    // ✅ 关键修改：在这里分别传入 system 和 user 消息
+                    // 这样 DeepSeek 就能完美理解它的人设了
                     body = JSON.stringify({
                         model: localStorage.getItem('gemini_api_model') || "deepseek-ai/DeepSeek-V3",
-                        messages: [{role: "user", content: prompt}],
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: userPrompt }
+                        ],
                         stream: false
                     });
+                } 
+                // --- 针对 Google Gemini (原生格式) ---
+                else {
+                    // Gemini 原生接口通常把 prompts 拼接在一起效果更好
+                    const combinedText = systemPrompt + "\n\n---\n\n" + userPrompt;
+                    body = JSON.stringify({ contents: [{ parts: [{ text: combinedText }] }] });
                 }
 
                 const response = await fetch(url, {
@@ -944,10 +998,13 @@
                 } else if (data.choices && data.choices[0].message) {
                     text = data.choices[0].message.content;
                 }
+                
+                // 渲染 Markdown
                 content.innerHTML = marked.parse(text);
 
             } catch (err) {
-                content.innerHTML = `<p class="text-red-400 text-center">连接失败：${err.message}<br>请检查 API Key 或代理地址。</p>`;
+                console.error(err);
+                content.innerHTML = `<p class="text-red-400 text-center">连接中断：${err.message}<br><span class="text-xs text-gray-500">可能是网络波动或 Key 余额不足</span></p>`;
             }
         };
 
